@@ -1,4 +1,4 @@
-# random-forests
+# Random Forests in Clojure
 
 An _incomplete_ implementation of Random Forests in Clojure. 
 
