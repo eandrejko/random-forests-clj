@@ -1,14 +1,20 @@
-(ns random-forests.core)
+(ns random-forests.core
+  (:use clojure.contrib.duck-streams))
 
 (defn targets
   "returns collection of targets from examples"
   [examples]
   (map last examples))
 
+(defn mode
+  "determines the mode of a coll"
+  [coll]
+  (first (last (sort-by val (frequencies coll)))))
+
 (defn target-mode
   "determines the mode of the target in examples"
   [examples]
-  (first (last (sort-by val (frequencies (targets examples))))))
+  (mode (targets examples)))
 
 (defn target-is-constant?
   "determines if the target is constant within the provided examples, if so returns the constant value, else returns nil"
@@ -111,6 +117,74 @@
         ;; else determine best splitting node and recurse with new examples and features
         (build-tree-with-split examples features (determine-split examples features))))))
 
+(defn read-dataset
+  "reads dataset for training and test from a csv file"
+  [file-name]
+  (with-open [rdr (reader file-name)]
+    (doall (map #(apply vector (.split % ",")) (rest (line-seq rdr))))))
+
+(defn indexed
+  "indexes a collection using 0..."
+  [coll]
+  (map vector (iterate inc 0) coll))
+
+(defn split-dataset-into-training-and-test
+  "splits a dataset into a training in test dataset using a 80/20 split"
+  [dataset]
+  {:training (map last (filter #(< 0 (mod (first %) 5)) (indexed dataset))),
+   :test (map last (filter #(= 0 (mod (first %) 5)) (indexed dataset)))})
+
+(defn bootstrap
+  "returns a bootstrap sample of the provided collection"
+  [coll]
+  (let [N (count coll)]
+    (repeatedly N #(nth coll (rand-int N)))))
+
+(defn sample
+  "returns a random sample of the specified size from coll"
+  [coll k]
+  (take k (lazy-sample coll)))
+
+(defn lazy-sample
+  "returns a random sample of the specified size from coll"
+  [coll]
+  (let [coll (seq coll)
+        k (count coll)]
+    (repeatedly #(nth coll (rand-int k)))))
+
+(defn build-random-forest
+  "returns a sequence of decision trees using boostrapped training examples
+   and using a random sample of m features"
+  [ds features m]
+  (repeatedly #(build-tree (bootstrap ds) (set (sample features m)))))
+
+(defn votes
+  "determines vote of each decision tree in forest"
+  [forest features]
+  (map #(% features) forest))
+
 (defn classify
-  [features tree]
-  (tree features))
+  "classifies an example by estimating the probability an example belongs to
+   a particular class by taking votes from decision trees in forest"
+  [forest features]
+  (let [votes (votes forest features)
+        k (count forest)
+        f (frequencies votes)]
+    (reduce (fn [m x] (assoc m x (/ (get f x) k))) {} (keys f))))
+
+(defn classify-scalar
+  "returns a number between 0 and 1 for a forest acting as a binary classifer with decision
+   trees returning 0 or 1"
+  [forest features]
+  (avg (votes forest features)))
+
+(defn auc
+  "measure the auc of a forest against the provided examples"
+  [forest examples]
+  (let [scored (reduce
+                (fn [h x]
+                  (assoc h (first x) (conj (get h (first x) '()) (last x)))) {} (map #(vector (last %) (classify-scalar forest %)) examples))
+        one-scores (take 1000 (lazy-sample (get scored 1)))
+        zero-scores (take 1000 (lazy-sample (get scored 0)))]
+    (float (avg (map #(if (< (first %) (last %)) 1 0)
+                     (map vector zero-scores one-scores))))))
