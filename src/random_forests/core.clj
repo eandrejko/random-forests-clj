@@ -36,10 +36,8 @@
 (defn split-examples
   "determines the subset of examples with the specified feature having the specified value"
   [examples feature-value]
-  (let [i (:feature feature-value)
-        val (:value feature-value)]
-    {:equal (filter #(= (nth % i) val) examples),
-     :unequal (filter #(not (= (nth % i) val)) examples)}))
+    {:equal (filter feature-value examples),
+     :unequal (filter #(not (feature-value %)) examples)})
 
 (defn both-splits-nonempty?
   "determines if both subsets of slip are non-empty"
@@ -50,8 +48,6 @@
   "measures the value of splitting the examples using the specified feature value pair using the Gini impurity measure"
   [examples feature-value]
   (let [all-targets (set (targets examples))
-        k (:feature feature-value)
-        v (:value feature-value)
         split-examples (split-examples examples feature-value)]
     (if (both-splits-nonempty? split-examples)
       (avg (map #(gini-impurity all-targets (frequencies (targets %)))
@@ -59,7 +55,10 @@
 
 (defn feature-value
   [feature value]
-  {:feature feature, :value value})
+  (with-meta
+    (fn [example] (= (nth example feature) value))
+    {:feature feature :value value}))
+  ;{:feature feature, :value value})
 
 (defn feature-values
   "determines set of values for feature"
@@ -78,7 +77,7 @@
 (defn determine-features
   "determines the remaining feature set by removing the specfied feature"
   [features feature-value]
-  (disj features (:feature feature-value)))
+  (disj features (:feature (meta feature-value))))
 
 ;; method defined below, needed for call in build-tree-with-split
 (defn build-tree [examples features])
@@ -93,10 +92,10 @@
           child-neq (build-tree (:unequal ex) ft)]
       (with-meta
         (fn [x]
-        (if (= (:value feature-value) (nth x (:feature feature-value)))
+        (if (feature-value x)
           (child-eq x)
           (child-neq x)))
-        {:tree (str "if(" (:feature feature-value) "=" (:value feature-value) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )}))
+        {:tree (str "if(" (:feature (meta feature-value)) "=" (:value (meta feature-value)) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )}))
     ;; examples cannot be split all features are identical
     (let [t (target-mode examples)]
       (with-meta (fn [x] t) {:tree t}))))
@@ -188,3 +187,22 @@
         zero-scores (take 1000 (lazy-sample (get scored 0)))]
     (float (avg (map #(if (< (first %) (last %)) 1 0)
                      (map vector zero-scores one-scores))))))
+
+;; usage
+(comment
+
+  (def data (split-dataset-into-training-and-test
+             ;; the target variable must be read as an integer to measure the auc
+             (map
+              #(vec (concat (butlast %) (list (Integer/parseInt (last %)))))
+              (read-dataset "test/data/cancer.csv"))))
+
+  ;; everything but the last column is an input feature
+  (def features (set (range (dec (count (first (:training data)))))))
+       
+  (def forest (doall
+               (take 10 (build-random-forest (:training data) features 3))))
+
+  (println "AUC: " (auc forest (:test data)))
+  
+  )

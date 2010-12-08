@@ -16,11 +16,11 @@
 
 (deftest split-examples-finds-subset-of-examples-matching-feature-value
   (let [examples (list ["M" "<25" 1] ["M" "<30" 1] ["F" "<30" 1] )]
-    (is (= (list ["F" "<30" 1]) (:equal (split-examples examples {:feature 0, :value "F"}))))))
+    (is (= (list ["F" "<30" 1]) (:equal (split-examples examples (feature-value 0 "F")))))))
 
 (deftest determine-features-removes-feature-from-feature-val
   (let [features #{0 1}]
-    (is (= #{1} (determine-features features {:feature 0, :value "F"})))))
+    (is (= #{1} (determine-features features (feature-value 0 "F"))))))
 
 (deftest build-tree-with-empty-features-maps-to-mode-of-target
   (let [features #{}, examples (list ["M" "<25" 1] ["M" "<30" 1] ["F" "<30" 0] )]
@@ -40,12 +40,12 @@
 
 (deftest measure-split-measure-average-gini-impurity-of-examples-split-by-feature-with-optimal-split
   (let [examples (list ["M" "<25" 0] ["M" "<30" 1] ["F" "<30" 1] )
-        fv {:feature 1, :value "<30" }]
+        fv (feature-value 1 "<30")]
     (is (= 0 (measure-split examples fv)))))
 
 (deftest measure-split-measure-average-gini-impurity-of-examples-split-by-feature-with-poor-split
   (let [examples (list ["M" "<25" 0] ["M" "<30" 1] ["F" "<30" 1] ["F" "<30" 0] )
-        fv {:feature 0, :value "M" }]
+        fv (feature-value 0 "M")]
     (is (= 1/2 (measure-split examples fv)))))
 
 (deftest feature-values-determines-set-of-feature-values
@@ -55,8 +55,10 @@
 
 (deftest determine-split-chooses-split-with-minimal-avg-gini-impurity
   (let [examples (list ["M" "<25" 0] ["M" "<30" 1] ["F" "<25" 0] ["F" "<35" 1] )
-        fv {:feature 1, :value "<25" }]
-    (is (= fv (determine-split examples #{0 1})))))
+        fv (feature-value 1 "<25")
+        split (determine-split examples #{0 1})]
+    (is (= (:feature fv) (:feature split)))
+    (is (= (:value fv) (:value split)))))
 
 (deftest both-splits-nonempty?-returns-false-when-one-split-is-empty
   (let [examples (list ["M" "<25" 0] ["M" "<25" 1])]
