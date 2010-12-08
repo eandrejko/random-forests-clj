@@ -140,17 +140,17 @@
   (let [N (count coll)]
     (repeatedly N #(nth coll (rand-int N)))))
 
-(defn sample
-  "returns a random sample of the specified size from coll"
-  [coll k]
-  (take k (lazy-sample coll)))
-
 (defn lazy-sample
   "returns a random sample of the specified size from coll"
   [coll]
   (let [coll (seq coll)
         k (count coll)]
     (repeatedly #(nth coll (rand-int k)))))
+
+(defn sample
+  "returns a random sample of the specified size from coll"
+  [coll k]
+  (take k (lazy-sample coll)))
 
 (defn build-random-forest
   "returns a sequence of decision trees using boostrapped training examples
