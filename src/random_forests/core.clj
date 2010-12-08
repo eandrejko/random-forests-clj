@@ -1,5 +1,5 @@
 (ns random-forests.core
-  (:use clojure.contrib.duck-streams))
+  (:require [clojure.contrib.duck-streams :as duck-streams]))
 
 (defn targets
   "returns collection of targets from examples"
@@ -120,7 +120,7 @@
 (defn read-dataset
   "reads dataset for training and test from a csv file"
   [file-name]
-  (with-open [rdr (reader file-name)]
+  (with-open [rdr (duck-streams/reader file-name)]
     (doall (map #(apply vector (.split % ",")) (rest (line-seq rdr))))))
 
 (defn indexed
