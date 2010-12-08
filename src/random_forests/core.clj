@@ -53,17 +53,24 @@
       (avg (map #(gini-impurity all-targets (frequencies (targets %)))
                 (vals split-examples))))))
 
+(defn feature
+  "creates a feature map containing the feature index, type and name"
+  ([name i]
+     (feature name i :categorical))
+  ([name i type]
+     (hash-map :name name :index i :type type)))
+
 (defn feature-value
+  "creates a filter function for a feature value pair"
   [feature value]
   (with-meta
-    (fn [example] (= (nth example feature) value))
+    (fn [example] (= (nth example (:index feature)) value))
     {:feature feature :value value}))
-  ;{:feature feature, :value value})
 
 (defn feature-values
   "determines set of values for feature"
   [examples feature]
-  (set (map #(nth % feature) examples)))
+  (set (map #(nth % (:index feature)) examples)))
 
 (defn determine-split
   "returns a feature value pair as {:feature feature, :value value} representing the best split of the provided examples from the provided features"
@@ -95,7 +102,7 @@
         (if (feature-value x)
           (child-eq x)
           (child-neq x)))
-        {:tree (str "if(" (:feature (meta feature-value)) "=" (:value (meta feature-value)) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )}))
+        {:tree (str "if(" (:name (:feature (meta feature-value))) "=" (:value (meta feature-value)) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )}))
     ;; examples cannot be split all features are identical
     (let [t (target-mode examples)]
       (with-meta (fn [x] t) {:tree t}))))
@@ -191,17 +198,19 @@
 ;; usage
 (comment
 
+  (def data-file "test/data/cancer.csv")
+  
   (def data (split-dataset-into-training-and-test
              ;; the target variable must be read as an integer to measure the auc
              (map
               #(vec (concat (butlast %) (list (Integer/parseInt (last %)))))
-              (read-dataset "test/data/cancer.csv"))))
-
+              (read-dataset data-file))))
+  
   ;; everything but the last column is an input feature
-  (def features (set (range (dec (count (first (:training data)))))))
+  (def features (set (map #(feature (str "V" %) %) (range (dec (count (first (:training data))))))))
        
   (def forest (doall
-               (take 10 (build-random-forest (:training data) features 3))))
+               (take 50 (build-random-forest (:training data) features 3))))
 
   (println "AUC: " (auc forest (:test data)))
   
