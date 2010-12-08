@@ -63,14 +63,27 @@
 (defn feature-value
   "creates a filter function for a feature value pair"
   [feature value]
-  (with-meta
-    (fn [example] (= (nth example (:index feature)) value))
-    {:feature feature :value value}))
+  (let [i (:index feature)]
+    (if (= :continuous (:type feature))
+    (with-meta
+      (fn [example] (<= (nth example i) value))
+      {:feature feature :value value :op-t "<=" :op-f ">"})
+    (with-meta
+      (fn [example] (= (nth example i) value))
+      {:feature feature :value value :op-t "==" :op-f "!="}))))
+
+(defn pairs
+  "returns seq of pairs from collection"
+  [coll]
+  (partition 2 1 coll))
 
 (defn feature-values
   "determines set of values for feature"
   [examples feature]
-  (set (map #(nth % (:index feature)) examples)))
+  (let [values (map #(nth % (:index feature)) examples)]
+    (if (= :continuous (:type feature))
+    (set (map #(/ (+ (last %) (first %)) 2) (pairs (sort values))))
+    (set values))))
 
 (defn determine-split
   "returns a feature value pair as {:feature feature, :value value} representing the best split of the provided examples from the provided features"
@@ -97,12 +110,13 @@
           ft (determine-features features feature-value)
           child-eq (build-tree (:equal ex) ft)
           child-neq (build-tree (:unequal ex) ft)]
-      (with-meta
-        (fn [x]
-        (if (feature-value x)
-          (child-eq x)
-          (child-neq x)))
-        {:tree (str "if(" (:name (:feature (meta feature-value))) "=" (:value (meta feature-value)) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )}))
+      (let [mfv (meta feature-value)]
+        (with-meta
+          (fn [x]
+            (if (feature-value x)
+              (child-eq x)
+              (child-neq x)))
+          {:tree (str "if(" (:name (:feature mfv)) (:op-t mfv) (:value mfv) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )})))
     ;; examples cannot be split all features are identical
     (let [t (target-mode examples)]
       (with-meta (fn [x] t) {:tree t}))))

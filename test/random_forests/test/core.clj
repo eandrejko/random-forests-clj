@@ -56,13 +56,32 @@
         s #{"M" "F"}]
     (is (= s (feature-values examples (feature "gender" 0))))))
 
+(deftest feature-values-splits-continuous-values-at-midpoints
+  (let [examples (list ["M" 28 0] ["M" 30 1] ["F" 30 1] ["F" 31 0] )
+        s #{29 30 61/2}]
+    (is (= s (feature-values examples (feature "age" 1 :continuous))))))
+
 (deftest determine-split-chooses-split-with-minimal-avg-gini-impurity
   (let [examples (list ["M" "<25" 0] ["M" "<30" 1] ["F" "<25" 0] ["F" "<35" 1] )
-        fv (feature-value (feature "age" 1) "<25")
+        fv (feature-value (feature 1 1) "<25")
         features (set (map #(feature % %) #{0 1}))
         split (determine-split examples features)]
-    (is (= (:feature fv) (:feature split)))
-    (is (= (:value fv) (:value split)))))
+    (is (= (:feature (meta fv)) (:feature (meta split))))
+    (is (= (:value (meta fv)) (:value (meta split))))))
+
+(deftest feature-value-uses-order-operator-with-continuous-values
+  (let [fv (feature-value (feature "age" 1 :continuous) 30.5)]
+    (is (= false (fv ["M" 31])))
+    (is (= true (fv ["M" 30])))
+    (is (= true (fv ["M" 30.5])))))
+
+(deftest determine-split-chooses-best-split-for-continuous-feature-and-splits-at-midpoint
+  (let [examples (list ["M" 24 0] ["M" 30 1] ["F" 25 0] ["F" 35 1] )
+        fv (feature-value (feature "age" 1 :continuous) 27.5)
+        features #{(feature "gender" 0) (feature "age" 1 :continuous)}
+        split (determine-split examples features)]
+    (is (= (:feature (meta fv)) (:feature (meta split))))
+    (is (= (:value (meta fv)) (:value (meta split)))))) 
 
 (deftest both-splits-nonempty?-returns-false-when-one-split-is-empty
   (let [examples (list ["M" "<25" 0] ["M" "<25" 1])]
