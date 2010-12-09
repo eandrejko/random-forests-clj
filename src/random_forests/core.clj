@@ -1,5 +1,7 @@
 (ns random-forests.core
-  (:require [clojure.contrib.duck-streams :as duck-streams]))
+  (:require [clojure.contrib.duck-streams :as duck-streams])
+  (:require [clojure.contrib.str-utils :as str-utils])
+  (:require [clojure.contrib.combinatorics :as combinatorics]))
 
 (defn targets
   "returns collection of targets from examples"
@@ -58,19 +60,38 @@
   ([name i]
      (feature name i :categorical))
   ([name i type]
-     (hash-map :name name :index i :type type)))
+     (hash-map :name name :index i :type type))
+  ([name i type vector-size]
+     (hash-map :name name :index i :type type :vector-size vector-size)))
+
+(defn interaction?
+  "determines if a feature is an interaction of two or more features"
+  [feature]
+  (not (map? feature)))
 
 (defn feature-value
   "creates a filter function for a feature value pair"
   [feature value]
   (let [i (:index feature)]
-    (if (= :continuous (:type feature))
-    (with-meta
-      (fn [example] (<= (nth example i) value))
-      {:feature feature :value value :op-t "<=" :op-f ">"})
-    (with-meta
-      (fn [example] (= (nth example i) value))
-      {:feature feature :value value :op-t "==" :op-f "!="}))))
+    (cond
+     (interaction? feature)
+     (let [truth-conditions (map feature-value feature value)
+           text (map #(:text (meta %)) truth-conditions)]
+       (with-meta
+         (fn [example] (reduce (fn [x y] (and x y)) (map #(% example) truth-conditions)))
+         {:feature feature :value value :text (str-utils/str-join " and " text)}))
+     (= :continuous (:type feature))
+     (with-meta
+       (fn [example] (<= (nth example i) value))
+       {:feature feature :value value :text (str (:name feature) "<=" value)})
+     (= :text (:type feature))
+     (with-meta
+       (fn [example] (= (nth (nth example i) value) 1))
+       {:feature feature :value value :text (str (:name feature) " contains " value)})
+     :else
+     (with-meta
+       (fn [example] (= (nth example i) value))
+       {:feature feature :value value :text (str (:name feature) "==" value)}))))
 
 (defn pairs
   "returns seq of pairs from collection"
@@ -80,10 +101,17 @@
 (defn feature-values
   "determines set of values for feature"
   [examples feature]
-  (let [values (map #(nth % (:index feature)) examples)]
-    (if (= :continuous (:type feature))
-    (set (map #(/ (+ (last %) (first %)) 2) (pairs (sort values))))
-    (set values))))
+  (cond
+   (interaction? feature)
+   (apply combinatorics/cartesian-product (map #(feature-values examples %) feature))
+   (= (:type feature) :text)
+   (range 0 (:vector-size feature))
+   (= :continuous (:type feature))
+   (let [values (map #(nth % (:index feature)) examples)]
+     (set (map #(/ (+ (last %) (first %)) 2) (pairs (sort values)))))
+   :else
+   (set (map #(nth % (:index feature)) examples))
+   ))
 
 (defn determine-split
   "returns a feature value pair as {:feature feature, :value value} representing the best split of the provided examples from the provided features"
@@ -116,7 +144,7 @@
             (if (feature-value x)
               (child-eq x)
               (child-neq x)))
-          {:tree (str "if(" (:name (:feature mfv)) (:op-t mfv) (:value mfv) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )})))
+          {:tree (str "if(" (:text mfv) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )})))
     ;; examples cannot be split all features are identical
     (let [t (target-mode examples)]
       (with-meta (fn [x] t) {:tree t}))))
@@ -136,6 +164,12 @@
         (with-meta (fn [x] t) {:tree t})
         ;; else determine best splitting node and recurse with new examples and features
         (build-tree-with-split examples features (determine-split examples features))))))
+
+(defn encode-text-into-vector
+  "encodes text into a binary vector of the specified size"
+  [coll size]
+  (let [hash-values (set (map #(mod (.hashCode %) size) coll))]
+    (vec (map #(if (contains? hash-values %) 1 0) (range 0 (dec size))))))
 
 (defn read-dataset
   "reads dataset for training and test from a csv file"
@@ -222,9 +256,14 @@
   
   ;; everything but the last column is an input feature
   (def features (set (map #(feature (str "V" %) %) (range (dec (count (first (:training data))))))))
+
+  (def features-with-interactions (set
+                                   (concat
+                                   features
+                                   (for [a features b features :when (not (= a b))] [a b]))))
        
   (def forest (doall
-               (take 50 (build-random-forest (:training data) features 3))))
+               (take 50 (build-random-forest (:training data) features-with-interactions 3))))
 
   (println "AUC: " (auc forest (:test data)))
   
