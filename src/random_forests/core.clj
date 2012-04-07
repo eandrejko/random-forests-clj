@@ -118,9 +118,9 @@
   [examples features]
   (ffirst (sort-by last
                    (filter last
-                           (map #(vector % (measure-split examples %))
-                                (for [feature features, value (feature-values examples feature)]
-                                  (feature-value feature value)))))))
+                           (pmap #(vector % (measure-split examples %))
+                                 (for [feature features, value (feature-values examples feature)]
+                                   (feature-value feature value)))))))
 
 (defn determine-features
   "determines the remaining feature set by removing the specfied feature"
@@ -263,7 +263,7 @@
                                    (for [a features b features :when (not (= a b))] [a b]))))
        
   (def forest (doall
-               (take 50 (build-random-forest (:training data) features-with-interactions 3))))
+               (take 250 (build-random-forest (:training data) features-with-interactions 3))))
 
   (println "AUC: " (auc forest (:test data)))
   
