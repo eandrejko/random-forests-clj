@@ -159,7 +159,7 @@
       (with-meta (fn [x] t) {:tree t}))
     ;; have feature to split on, find best and recurse
     (let [t (target-is-constant? examples)]
-      (if t 
+      (if t
         ;; constant target value amongst examples, so use this target value
         (with-meta (fn [x] t) {:tree t})
         ;; else determine best splitting node and recurse with new examples and features
@@ -247,13 +247,13 @@
 (comment
 
   (def data-file "test/data/cancer.csv")
-  
+
   (def data (split-dataset-into-training-and-test
              ;; the target variable must be read as an integer to measure the auc
              (map
               #(vec (concat (butlast %) (list (Integer/parseInt (last %)))))
               (read-dataset data-file))))
-  
+
   ;; everything but the last column is an input feature
   (def features (set (map #(feature (str "V" %) %) (range (dec (count (first (:training data))))))))
 
@@ -261,10 +261,10 @@
                                    (concat
                                    features
                                    (for [a features b features :when (not (= a b))] [a b]))))
-       
+
   (def forest (doall
                (take 250 (build-random-forest (:training data) features-with-interactions 3))))
 
   (println "AUC: " (auc forest (:test data)))
-  
+
   )
