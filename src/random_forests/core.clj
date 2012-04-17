@@ -116,11 +116,13 @@
 (defn determine-split
   "returns a feature value pair as {:feature feature, :value value} representing the best split of the provided examples from the provided features"
   [examples features]
-  (ffirst (sort-by last
-                   (filter last
-                           (pmap #(vector % (measure-split examples %))
-                                 (for [feature features, value (feature-values examples feature)]
-                                   (feature-value feature value)))))))
+  (->> (for [feature features
+             value   (feature-values examples feature)]
+         (feature-value feature value))
+       (pmap #(vector % (measure-split examples %)))
+       (filter last) ;; remove unmeasurable splits
+       (sort-by last) ;; best split has minimal measure
+       (ffirst)))
 
 (defn determine-features
   "determines the remaining feature set by removing the specfied feature"

@@ -51,6 +51,11 @@
         fv (feature-value (feature "gender" 0) "M")]
     (is (= 1/2 (measure-split examples fv)))))
 
+(deftest measure-split-is-nil-for-constant-feature-value
+  (let [examples (list ["M" "<25" 1] ["M" "<30" 1] ["M" "<30" 0] ["M" "<30" 0] )
+        fv (feature-value (feature "gender" 0) "M")]
+    (is (nil? (measure-split examples fv)))))
+
 (deftest feature-values-determines-set-of-feature-values
   (let [examples (list ["M" "<25" 0] ["M" "<30" 1] ["F" "<30" 1] ["F" "<30" 0] )
         s #{"M" "F"}]
@@ -81,7 +86,7 @@
         features #{(feature "gender" 0) (feature "age" 1 :continuous)}
         split (determine-split examples features)]
     (is (= (:feature (meta fv)) (:feature (meta split))))
-    (is (= (:value (meta fv)) (:value (meta split)))))) 
+    (is (= (:value (meta fv)) (:value (meta split))))))
 
 (deftest both-splits-nonempty?-returns-false-when-one-split-is-empty
   (let [examples (list ["M" "<25" 0] ["M" "<25" 1])]
@@ -118,4 +123,3 @@
   (let [examples  (list ["M" (encode-text-into-vector #{"the" "hat"} 5) 0] ["F" (encode-text-into-vector #{"the" "hat"} 5) 1])
         feature [(feature "description" 1 :text 5) (feature "gender" 0)]]
     (is (= (for [x (range 0 5) y ["F" "M"]] (list x y)) (feature-values examples feature)))))
-
