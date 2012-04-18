@@ -86,7 +86,7 @@
         features #{(feature "gender" 0) (feature "age" 1 :continuous)}
         split (determine-split examples features)]
     (is (= (:feature (meta fv)) (:feature (meta split))))
-    (is (= (:value (meta fv)) (:value (meta split))))))
+    (is (= (:value (meta fv)) (float (:value (meta split)))))))
 
 (deftest both-splits-nonempty?-returns-false-when-one-split-is-empty
   (let [examples (list ["M" "<25" 0] ["M" "<25" 1])]

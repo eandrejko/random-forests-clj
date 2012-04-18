@@ -1,7 +1,6 @@
 (ns random-forests.core
-  (:require [clojure.contrib.duck-streams :as duck-streams])
-  (:require [clojure.contrib.str-utils :as str-utils])
-  (:require [clojure.contrib.combinatorics :as combinatorics]))
+  (:use clojure.math.combinatorics)
+  (:require [clojure.string :as str]))
 
 (defn targets
   "returns collection of targets from examples"
@@ -62,7 +61,9 @@
   ([name i type]
      (hash-map :name name :index i :type type))
   ([name i type vector-size]
-     (hash-map :name name :index i :type type :vector-size vector-size)))
+     (hash-map :name name :index i :type type :vector-size vector-size))
+  ([name i type vector-size dictionary]
+     (hash-map :name name :index i :type type :vector-size vector-size :dict dictionary)))
 
 (defn interaction?
   "determines if a feature is an interaction of two or more features"
@@ -79,7 +80,7 @@
            text (map #(:text (meta %)) truth-conditions)]
        (with-meta
          (fn [example] (reduce (fn [x y] (and x y)) (map #(% example) truth-conditions)))
-         {:feature feature :value value :text (str-utils/str-join " and " text)}))
+         {:feature feature :value value :text (str/join " and " text)}))
      (= :continuous (:type feature))
      (with-meta
        (fn [example] (<= (nth example i) value))
@@ -87,7 +88,7 @@
      (= :text (:type feature))
      (with-meta
        (fn [example] (= (nth (nth example i) value) 1))
-       {:feature feature :value value :text (str (:name feature) " contains " value)})
+       {:feature feature :value value :text (str (:name feature) " contains " (if (:dict feature) ((:dict feature) value) value))})
      :else
      (with-meta
        (fn [example] (= (nth example i) value))
@@ -103,7 +104,7 @@
   [examples feature]
   (cond
    (interaction? feature)
-   (apply combinatorics/cartesian-product (map #(feature-values examples %) feature))
+   (apply cartesian-product (map #(feature-values examples %) feature))
    (= (:type feature) :text)
    (range 0 (:vector-size feature))
    (= :continuous (:type feature))
