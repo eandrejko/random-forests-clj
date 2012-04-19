@@ -1,7 +1,8 @@
 (ns random-forests.core
   (:use [clojure.math.combinatorics]
         [clojure.set])
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [random-forests.stats :as stats]))
 
 (defn targets
   "returns collection of targets from examples"
@@ -184,29 +185,11 @@
   {:training (map last (filter #(< 0 (mod (first %) 5)) (indexed dataset))),
    :test (map last (filter #(= 0 (mod (first %) 5)) (indexed dataset)))})
 
-(defn bootstrap
-  "returns a bootstrap sample of the provided collection"
-  [coll]
-  (let [N (count coll)]
-    (repeatedly N #(nth coll (rand-int N)))))
-
-(defn lazy-sample
-  "returns a random sample of the specified size from coll"
-  [coll]
-  (let [coll (seq coll)
-        k (count coll)]
-    (repeatedly #(nth coll (rand-int k)))))
-
-(defn sample
-  "returns a random sample of the specified size from coll"
-  [coll k]
-  (take k (lazy-sample coll)))
-
 (defn build-random-forest
   "returns a sequence of decision trees using boostrapped training examples
    and using a random sample of m features"
   [ds features m]
-  (repeatedly #(build-tree (bootstrap ds) m)))
+  (repeatedly #(build-tree (stats/bootstrap ds) m)))
 
 (defn votes
   "determines vote of each decision tree in forest"
@@ -234,8 +217,8 @@
   (let [scored (reduce
                 (fn [h x]
                   (assoc h (first x) (conj (get h (first x) '()) (last x)))) {} (map #(vector (last %) (classify-scalar forest %)) examples))
-        one-scores (take 1000 (lazy-sample (get scored 1)))
-        zero-scores (take 1000 (lazy-sample (get scored 0)))]
+        one-scores (take 1000 (stats/lazy-sample (get scored 1)))
+        zero-scores (take 1000 (stats/lazy-sample (get scored 0)))]
     (float (avg (map #(if (< (first %) (last %)) 1 0)
                      (map vector zero-scores one-scores))))))
 
