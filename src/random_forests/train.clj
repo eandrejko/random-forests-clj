@@ -51,7 +51,11 @@
   (let [[options args banner] (cli args
                                    ["-h" "--help" "Show help" :default false :flag true]
                                    ["-f" "--features" "Features with types to use for prediction, comma separated with names matching header: name=continuous,foo=text" :parse-fn #(clojure.string/split % #",") :default []]
-                                   ["-t" "--target" "Prediction target name"])]
+                                   ["-s" "--size" "Size of bootstrap sample per tree" :parse-fn #(Integer/parseInt %) :default 1000]
+                                   ["-m" "--split" "Number of features to sample for each split" :parse-fn #(Integer/parseInt %) :default 100]
+                                   ["-o" "--output" "Write detailed training error output in CSV format to output file"]
+                                   ["-t" "--target" "Prediction target name"]
+                                   ["-l" "--limit" "Number of trees to build"  :parse-fn #(Integer/parseInt %) :default 100])]
     (when (:help options)
       (println banner)
       (System/exit 0))
@@ -68,8 +72,23 @@
                                 (map vec)
                                 (map (fn [z] (conj z (nth z target-index))))) ;; target is at end
           features         (set (features header (:features options)))]
-      (let [tree        (rf/build-tree examples features)
-            predictions (map tree examples)
-            errors      (map (fn [a b] (Math/abs (- a b))) predictions (map last examples))]
-        (println (/ (reduce + errors) (count errors))))
+      (let [forest      (take (:limit options)
+                              (rf/build-random-forest examples features (:split options) (:size options)))
+            sub-forests (->> (range 1 (inc (:limit options)))
+                             (map #(take % forest)))]
+        (if (:output options)
+          (spit (:output options) "tree_count,target,prediction,error"))
+        (doseq [trees sub-forests]
+          (let [evaluation (rf/evaluate-forest trees)
+                error      (->> evaluation
+                                (map (fn [[a b]] (Math/abs (- a b))))
+                                (rf/avg))]
+            (println (format "%d: %f" (count trees) error))
+            (if (:output options)
+              (spit (:output options)
+                    (->> evaluation
+                         (map (fn [[a b]] [(count trees) a b (- a b)]))
+                         (map #(clojure.string/join "," %))
+                         (clojure.string/join "\n"))
+                    :append true)))))
       (shutdown-agents))))
