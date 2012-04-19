@@ -26,12 +26,12 @@
 
 (deftest build-tree-with-empty-features-maps-to-mode-of-target
   (let [features #{}, examples (list ["M" "<25" 1] ["M" "<30" 1] ["F" "<30" 0] )]
-    (is (= 1 ((build-tree examples features) ["M" "<25" 1])))))
+    (is (= 1 ((build-tree examples features 1) ["M" "<25" 1])))))
 
 (deftest build-tree-with-constant-target
   (let [features (set (map #(feature % %) #{0}))
         examples (list ["M" "<25" 1] ["M" "<30" 1] ["F" "<30" 1] )]
-    (is (= 1 ((build-tree examples features) ["M" "<25" 0])))))
+    (is (= 1 ((build-tree examples features 1) ["M" "<25" 0])))))
 
 (deftest gini-impurity-with-constant-target-value-is-zero
   (let [targets #{0 1}, frequencies {1 3}]
@@ -70,7 +70,7 @@
   (let [examples (list ["M" "<25" 0] ["M" "<30" 1] ["F" "<25" 0] ["F" "<35" 1] )
         fv (feature-value (feature 1 1) "<25")
         features (set (map #(feature % %) #{0 1}))
-        split (determine-split examples features)]
+        split (determine-split examples features 10)]
     (is (= (:feature (meta fv)) (:feature (meta split))))
     (is (= (:value (meta fv)) (:value (meta split))))))
 
@@ -84,7 +84,7 @@
   (let [examples (list ["M" 24 0] ["M" 30 1] ["F" 25 0] ["F" 35 1] )
         fv (feature-value (feature "age" 1 :continuous) 27.5)
         features #{(feature "gender" 0) (feature "age" 1 :continuous)}
-        split (determine-split examples features)]
+        split (determine-split examples features 10)]
     (is (= (:feature (meta fv)) (:feature (meta split))))
     (is (= (:value (meta fv)) (float (:value (meta split)))))))
 
@@ -95,9 +95,58 @@
 (deftest determine-split-returns-nil-when-no-split-possible
   (let [examples (list ["M" "<25" 0] ["M" "<25" 1])
         features (set (map #(feature % %) #{0 1}))]
-    (is (= nil (determine-split examples features)))))
+    (is (= nil (determine-split examples features 1)))))
 
 (deftest build-tree-builds-decision-tree
   (let [examples (list ["M" "<25" 0] ["M" "<25" 0] ["F" "<30" 1] ["F" "<30" 1] )
         features (set (map #(feature % %) #{0 1}))]
-    (is (= 0 ((build-tree examples features) ["M" "<25"])))))
+    (is (= 0 ((build-tree examples features 1) ["M" "<25"])))))
+
+(deftest feature-values-of-text-feature-is-lexicon
+  (let [examples (list [#{"a" "b"} 28 0] [#{"b" "c"} 30 1] [#{"a"} 30 1])
+        s        #{"a" "b" "c"}]
+    (is (= s (feature-values examples (feature "foo" 0 :text))))))
+
+(deftest feature-value-selects-text-features
+  (let [examples  (list ["M" #{"the" "hat"} 5 0] ["M" #{"the" "shoe"} 5 1])
+        fv (feature-value (feature "description" 1 :text) "hat")]
+    (is (= true (fv (first examples))))
+    (is (= false (fv (last examples))))))
+
+(deftest feature-values-determines-set-of-values-for-text-features
+  (let [examples  (list ["M" #{"the" "hat"} 5 0] ["M" #{"the" "shoe"} 5 1])
+        feature (feature "description" 1 :text 5)]
+    (is (= (range 0 5) (feature-values examples feature)))))
+
+(deftest feature-value-selects-text-features
+  (let [examples  (list ["M" #{"the" "hat"} 5 0] ["M" #{"the" "shoe"} 5 1])
+        fv (feature-value (feature "description" 1 :text) "hat")]
+    (is (= true (fv (first examples))))
+    (is (= false (fv (last examples))))))
+
+(deftest feature-values-determines-set-of-values-for-text-features
+  (let [examples  (list ["M" #{"the" "hat"} 5 0] ["M" #{"the" "shoe"} 5 1])
+        feature (feature "description" 1 :text 5)]
+    (is (= #{"the" "hat" "shoe"} (feature-values examples feature)))))
+
+(deftest feature-value-selects-interaction-of-features
+  (let [examples  (list ["M"  #{"the" "hat"} 5 0] ["F"  #{"the" "hat"} 5 1])
+        fv (feature-value [(feature "description" 1 :text) (feature "gender" 0)] ["hat" "M"])]
+    (is (= true (fv (first examples))))
+    (is (= false (fv (last examples))))))
+
+(deftest feature-values-determines-set-of-values-for-interaction-features
+  (let [examples  (list ["M" #{"the" "hat"} 5 0] ["F"  #{"the" "hat"} 5 1])
+        feature [(feature "description" 1 :text 5) (feature "gender" 0)]]
+    (is (= (for [x (range 0 5) y ["F" "M"]] (list x y)) (feature-values examples feature)))))
+
+(deftest feature-value-selects-interaction-of-features
+  (let [examples  (list ["M" #{"the" "hat"} 5 0] ["F"  #{"the" "hat"} 5 1])
+        fv (feature-value [(feature "description" 1 :text) (feature "gender" 0)] ["hat" "M"])]
+    (is (= true (fv (first examples))))
+    (is (= false (fv (last examples))))))
+
+(deftest feature-values-determines-set-of-values-for-interaction-features
+  (let [examples  (list ["M"  #{"the" "hat"} 5 0] ["F"  #{"the" "hat"} 5 1])
+        feature [(feature "description" 1 :text 5) (feature "gender" 0)]]
+    (is (= (for [x #{"the" "hat"} y ["F" "M"]] (list x y)) (feature-values examples feature)))))

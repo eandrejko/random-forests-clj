@@ -1,5 +1,6 @@
 (ns random-forests.core
-  (:use clojure.math.combinatorics)
+  (:use [clojure.math.combinatorics]
+        [clojure.set])
   (:require [clojure.string :as str]))
 
 (defn targets
@@ -87,7 +88,7 @@
        {:feature feature :value value :text (str (:name feature) "<=" value)})
      (= :text (:type feature))
      (with-meta
-       (fn [example] (= (nth (nth example i) value) 1))
+       (fn [example] (contains? (nth example i) value))
        {:feature feature :value value :text (str (:name feature) " contains " (if (:dict feature) ((:dict feature) value) value))})
      :else
      (with-meta
@@ -106,7 +107,10 @@
    (interaction? feature)
    (apply cartesian-product (map #(feature-values examples %) feature))
    (= (:type feature) :text)
-   (range 0 (:vector-size feature))
+   (let [values (->> examples
+                     (map #(nth % (:index feature)))
+                     (reduce union))]
+     values)
    (= :continuous (:type feature))
    (let [values (map #(nth % (:index feature)) examples)]
      (set (map #(/ (+ (last %) (first %)) 2) (pairs (sort values)))))
@@ -116,10 +120,12 @@
 
 (defn determine-split
   "returns a feature value pair as {:feature feature, :value value} representing the best split of the provided examples from the provided features"
-  [examples features]
+  [examples features sample-size]
   (->> (for [feature features
              value   (feature-values examples feature)]
          (feature-value feature value))
+       (shuffle)
+       (take sample-size)
        (pmap #(vector % (measure-split examples %)))
        (filter last) ;; remove unmeasurable splits
        (sort-by last) ;; best split has minimal measure
@@ -134,13 +140,12 @@
 (defn build-tree [examples features])
 
 (defn build-tree-with-split
-  [examples features feature-value]
+  [examples features feature-value sample-size]
   (if feature-value
     ;; examples are splittable using feature and value
     (let [ex (split-examples examples feature-value)
-          ft (determine-features features feature-value)
-          child-eq (build-tree (:equal ex) ft)
-          child-neq (build-tree (:unequal ex) ft)]
+          child-eq (build-tree (:equal ex) features sample-size)
+          child-neq (build-tree (:unequal ex) features sample-size)]
       (let [mfv (meta feature-value)]
         (with-meta
           (fn [x]
@@ -154,7 +159,7 @@
 
 (defn build-tree
   "builds a decision tree recursively using examples as a collection of vectors with the last element assumed to be the target variable and features a vector of indices to use as features"
-  [examples features]
+  [examples features sample-size]
   (if (empty? examples) (throw (Exception. "Examples unexpectedly empty")))
   (if (empty? features)
     ;; no longer have features to split on, so use most common target
@@ -166,13 +171,7 @@
         ;; constant target value amongst examples, so use this target value
         (with-meta (fn [x] t) {:tree t})
         ;; else determine best splitting node and recurse with new examples and features
-        (build-tree-with-split examples features (determine-split examples features))))))
-
-(defn read-dataset
-  "reads dataset for training and test from a csv file"
-  [file-name]
-  (with-open [rdr (duck-streams/reader file-name)]
-    (doall (map #(apply vector (.split % ",")) (rest (line-seq rdr))))))
+        (build-tree-with-split examples features (determine-split examples features sample-size) sample-size)))))
 
 (defn indexed
   "indexes a collection using 0..."
@@ -207,7 +206,7 @@
   "returns a sequence of decision trees using boostrapped training examples
    and using a random sample of m features"
   [ds features m]
-  (repeatedly #(build-tree (bootstrap ds) (set (sample features m)))))
+  (repeatedly #(build-tree (bootstrap ds) m)))
 
 (defn votes
   "determines vote of each decision tree in forest"
