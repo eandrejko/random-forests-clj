@@ -9,6 +9,9 @@
   [examples]
   (map last examples))
 
+;; target of example
+(def target last)
+
 (defn mode
   "determines the mode of a coll"
   [coll]
@@ -185,11 +188,37 @@
   {:training (map last (filter #(< 0 (mod (first %) 5)) (indexed dataset))),
    :test (map last (filter #(= 0 (mod (first %) 5)) (indexed dataset)))})
 
+(defn build-and-evaluate-tree
+  "builds a tree from examples using features using m feature per split and bootstrap sample of size k
+   returns tree with meta-data :eval which contains a map of {example [prediction] ...} on held out data"
+  [examples features m k]
+  (let [[examples heldout] (stats/bootstrap-and-heldout examples k)
+        tree               (build-tree examples features m)
+        evaluation         (->> heldout
+                                (map #(vector % [(tree %)]))
+                                (into {}))]
+    (with-meta tree (assoc (meta tree) :eval evaluation))))
+
 (defn build-random-forest
   "returns a sequence of decision trees using boostrapped training examples
    and using a random sample of m features"
-  [ds features m]
-  (repeatedly #(build-tree (stats/bootstrap ds) m)))
+  [examples features m k]
+  (repeatedly #(build-and-evaluate-tree examples features m k)))
+
+(defn combine-predictions
+  "combines predictions of examples of the form {example [prediction] ...} and returns [target prediction] pairs"
+  [predictions]
+  (->> predictions
+       (reduce (partial merge-with concat))
+       (map (fn [[example preds]] (vector (target example) (avg preds))))))
+
+(defn evaluate-forest
+  "evaluates collection of trees by averaging predictions on held out data within trees meta-data :eval
+   returns collection of [target prediction] pairs"
+  [forest]
+  (->> forest
+       (map (comp :eval meta))
+       (combine-predictions)))
 
 (defn votes
   "determines vote of each decision tree in forest"

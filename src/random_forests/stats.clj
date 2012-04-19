@@ -20,3 +20,18 @@
   "returns a random sample of the specified size from coll"
   [coll k]
   (take k (lazy-sample coll)))
+
+(defn bootstrap-and-heldout
+  "returns a bootstrap sample of coll of size k with heldout sample of size (- (count coll) k)"
+  [coll k]
+  (let [N       (count coll)
+        sample  (-> (bootstrap (range N) k)
+                    (set))
+        heldout (->> (range N)
+                     (set)
+                     (filter (comp not sample)))
+        sample  (->> sample
+                     (map (partial nth coll)))
+        heldout (->> heldout
+                     (map (partial nth coll)))]
+    [sample heldout]))
