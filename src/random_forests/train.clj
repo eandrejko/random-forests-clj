@@ -77,7 +77,7 @@
             sub-forests (->> (range 1 (inc (:limit options)))
                              (map #(take % forest)))]
         (if (:output options)
-          (spit (:output options) "tree_count,target,prediction,error"))
+          (spit (:output options) "tree_count,target,prediction,error\n"))
         (doseq [trees sub-forests]
           (let [evaluation (rf/evaluate-forest trees)
                 error      (->> evaluation
@@ -88,7 +88,7 @@
               (spit (:output options)
                     (->> evaluation
                          (map (fn [[a b]] [(count trees) a b (- a b)]))
-                         (map #(clojure.string/join "," %))
-                         (clojure.string/join "\n"))
+                         (map #(str (clojure.string/join "," %) "\n"))
+                         (reduce str))
                     :append true)))))
       (shutdown-agents))))
