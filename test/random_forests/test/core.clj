@@ -61,9 +61,9 @@
         s #{"M" "F"}]
     (is (= s (feature-values examples (feature "gender" 0))))))
 
-(deftest feature-values-splits-continuous-values-at-midpoints
+(deftest feature-values-splits-continuous-values-at-midpoints-and-endpoints
   (let [examples (list ["M" 28 0] ["M" 30 1] ["F" 30 1] ["F" 31 0] )
-        s #{29 30 61/2}]
+        s #{28 29 30 61/2 31}]
     (is (= s (feature-values examples (feature "age" 1 :continuous))))))
 
 (deftest determine-split-chooses-split-with-minimal-avg-gini-impurity

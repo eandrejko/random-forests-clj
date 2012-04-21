@@ -116,8 +116,12 @@
                      (reduce union))]
      values)
    (= :continuous (:type feature))
-   (let [values (map #(nth % (:index feature)) examples)]
-     (set (map #(/ (+ (last %) (first %)) 2) (pairs (sort values)))))
+   (let [values (->> (map #(nth % (:index feature)) examples)
+                     sort)]
+     (set (concat
+           (map #(/ (+ (last %) (first %)) 2) (pairs values))
+           (list (first values))
+           (list (last values)))))
    :else
    (set (map #(nth % (:index feature)) examples))
    ))
@@ -222,23 +226,23 @@
 
 (defn votes
   "determines vote of each decision tree in forest"
-  [forest features]
-  (map #(% features) forest))
+  [forest example]
+  (map #(% example) forest))
 
 (defn classify
-  "classifies an example by estimating the probability an example belongs to
+  "classifies an oexample by estimating the probability an example belongs to
    a particular class by taking votes from decision trees in forest"
-  [forest features]
-  (let [votes (votes forest features)
-        k (count forest)
-        f (frequencies votes)]
+  [forest example]
+  (let [votes (votes forest example)
+        k     (count forest)
+        f     (frequencies votes)]
     (reduce (fn [m x] (assoc m x (/ (get f x) k))) {} (keys f))))
 
 (defn classify-scalar
   "returns a number between 0 and 1 for a forest acting as a binary classifer with decision
    trees returning 0 or 1"
-  [forest features]
-  (avg (votes forest features)))
+  [forest example]
+  (avg (votes forest example)))
 
 (defn auc
   "measure the auc of a forest against the provided examples"
