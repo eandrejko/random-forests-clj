@@ -49,6 +49,22 @@ Each tree is a function, and new examples can classified by calling the function
     (t ["M" "<20"]) ;; => 1
 ```
 
+## Feature Encoding
+
+Categorical features can be left as strings, continuous features should be stored as doubles, text features should be stored as sets:
+
+```clojure
+   (use '[random-forests.encoding :only (text-tokens)])
+
+   ;; text features should be encoded as text using text-tokens for stemming
+   (set (text-tokens "this is a text training example")) ;; => #{"train" "text" "exampl"}
+
+   ;; training examples with categorical, continuous and text feature
+   ;; (target is last element)
+   (def examples (list ["a" 4.5 #{"foo" "bar"} 1] ["b" 4.6 #{"bar" "baz"} 0])
+
+```
+
 ## Command Line Usage
 
 Models can built from the command line using `lein run`:
