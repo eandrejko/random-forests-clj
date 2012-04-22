@@ -25,7 +25,7 @@ To use add to your `project.clj`:
 
 ## Example
 
-Feaures are represented by the index in the training example.  A tree can be built using the `build-tree` method providing the training examples and the indices of the features to use.
+Feaures are represented by the index in the training example.  A forest can be built using the `build-random-forest` method providing the training examples and the indices of the features to use.
 
 ```clojure
     (use 'random-forests.core)
@@ -37,9 +37,9 @@ Feaures are represented by the index in the training example.  A tree can be bui
     (def features (set (list (feature 0 :categorical) (feature 1 :categorical))))
 
     ;; return a lazy sequence of decision trees with:
-    ;; - 1 random feature per splitting node
-    ;; - a bootstrap resample of 2 examples per tree
-    (def t (first (build-random-forest examples features 1 2))
+    ;; - 2 random feature values to determine split per splitting node
+    ;; - a bootstrap resample of 3 examples per tree
+    (def t (first (build-random-forest examples features 2 3))
     (meta t) ;; => {:tree "if(1=<40){0}else{1}"}
 ```
 
