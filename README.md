@@ -72,8 +72,11 @@ To build a binary classifier on the provided test data set using a
 forest of 500 trees:
 
 ```
-lein run -f
-V1=categorical,V2=categorical,V3=categorical,V4=categorical,V5=categorical,V6=categorical,V7=categorical,V8=categorical,V9=categorical -l 500 -t target=continuous -b test/data/cancer.csv
+lein run -f V1=categorical,V2=categorical,V3=categorical,V4=categorical,V5=categorical,V6=categorical,V7=categorical,V8=categorical,V9=categorical \
+         -l 500 \
+         -t target=continuous \
+         -b \
+         test/data/cancer.csv
 
 ```
 
