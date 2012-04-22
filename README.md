@@ -34,13 +34,18 @@ Feaures are represented by the index in the training example.  A forest can be b
     (def examples (list ["M" "<25" 1] ["M" "<40" 0] ["F" "<35" 1] ["F" "<30" 1]))
 
     ;; features can be :continuous, :categorical or :text
-    (def features (set (list (feature 0 :categorical) (feature 1 :categorical))))
+    (def features (set (list (feature "gender" 0 :categorical) (feature "age" 1 :categorical))))
 
     ;; return a lazy sequence of decision trees with:
     ;; - 2 random feature values to determine split per splitting node
     ;; - a bootstrap resample of 3 examples per tree
-    (def t (first (build-random-forest examples features 2 3))
-    (meta t) ;; => {:tree "if(1=<40){0}else{1}"}
+    (def t (first (build-random-forest examples features 2 3)))
+
+    ;; meta data on the Clojure function t contains a text representation of the tree
+    (:tree (meta t)) ;; => "if(age==<40){0}else{1}"
+
+    ;; also predictions on held out data are included
+    (:eval (meta t)) ;; => {["M" "<25" 1] [1]}
 ```
 
 Each tree is a function, and new examples can classified by calling the function:
