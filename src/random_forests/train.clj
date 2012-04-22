@@ -62,17 +62,16 @@
   [& args]
   (let [[options args banner] (cli args
                                    ["-h" "--help" "Show help" :default false :flag true]
-                                   ["-f" "--features" "Features with types to use for prediction, comma separated with names matching header: name=continuous,foo=text" :parse-fn #(clojure.string/split % #",") :default []]
+                                   ["-f" "--features" "Features specification (matching CSV header): name=continuous,foo=text" :parse-fn #(clojure.string/split % #",") :default []]
                                    ["-s" "--size" "Size of bootstrap sample per tree" :parse-fn #(Integer/parseInt %) :default 1000]
                                    ["-m" "--split" "Number of features to sample for each split" :parse-fn #(Integer/parseInt %) :default 100]
                                    ["-o" "--output" "Write detailed training error output in CSV format to output file"]
                                    ["-t" "--target" "Prediction target name"]
                                    ["-b" "--binary" "Perform binary classification of target (measures AUC loss)" :default false :flag true]
-                                   ["-l" "--limit" "Number of trees to build"  :parse-fn #(Integer/parseInt %) :default 100])]
-    (when (:help options)
+                                   ["-l" "--limit" "Number of trees to build" :parse-fn #(Integer/parseInt %) :default 100])]
+    (when (or (not (first args)) (:help options))
       (println banner)
       (System/exit 0))
-
     (let [input            (csv-from-path (first args))
           [header & input] input
           encoding         (encoding-fns (conj (:features options) (:target options)))

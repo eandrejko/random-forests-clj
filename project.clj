@@ -1,4 +1,4 @@
-(defproject random-forests-clj "0.1.0"
+(defproject random-forests-clj "0.2.0"
   :description "An implementation of Random Forests for classification in Clojure"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [clojure-csv/clojure-csv "2.0.0-alpha1"]

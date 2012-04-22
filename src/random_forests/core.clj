@@ -268,29 +268,3 @@
                          (take 1000))]
     (float (avg (map #(if (< (first %) (last %)) 1 0)
                      (map vector zero-scores one-scores))))))
-
-;; usage
-(comment
-
-  (def data-file "test/data/cancer.csv")
-
-  (def data (split-dataset-into-training-and-test
-             ;; the target variable must be read as an integer to measure the auc
-             (map
-              #(vec (concat (butlast %) (list (Integer/parseInt (last %)))))
-              (read-dataset data-file))))
-
-  ;; everything but the last column is an input feature
-  (def features (set (map #(feature (str "V" %) %) (range (dec (count (first (:training data))))))))
-
-  (def features-with-interactions (set
-                                   (concat
-                                   features
-                                   (for [a features b features :when (not (= a b))] [a b]))))
-
-  (def forest (doall
-               (take 250 (build-random-forest (:training data) features-with-interactions 3))))
-
-  (println "AUC: " (auc forest (:test data)))
-
-  )
