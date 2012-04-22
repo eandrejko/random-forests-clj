@@ -10,6 +10,7 @@ Features:
 
 Limitations:
 - All training examples must fit into memory
+- Forests are not serialized
 
 A description of random forests can be found at: [http://www.stat.berkeley.edu/~breiman/RandomForests/](http://www.stat.berkeley.edu/~breiman/RandomForests/).
 
