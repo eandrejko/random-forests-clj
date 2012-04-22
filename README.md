@@ -33,7 +33,7 @@ Feaures are represented by the index in the training example.  A forest can be b
     ;; target is in the last position
     (def examples (list ["M" "<25" 1] ["M" "<40" 0] ["F" "<35" 1] ["F" "<30" 1]))
 
-    ;; features can be continuous, categorical or text
+    ;; features can be :continuous, :categorical or :text
     (def features (set (list (feature 0 :categorical) (feature 1 :categorical))))
 
     ;; return a lazy sequence of decision trees with:
