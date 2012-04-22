@@ -245,13 +245,18 @@
   (avg (votes forest example)))
 
 (defn auc
-  "measure the auc of a forest against the provided examples"
-  [forest examples]
-  (let [scored (reduce
-                (fn [h x]
-                  (assoc h (first x) (conj (get h (first x) '()) (last x)))) {} (map #(vector (last %) (classify-scalar forest %)) examples))
-        one-scores (take 1000 (stats/lazy-sample (get scored 1)))
-        zero-scores (take 1000 (stats/lazy-sample (get scored 0)))]
+  "measure the auc of a forest against held out data"
+  [evaluation]
+  (let [one-scores  (->> evaluation
+                         (filter (fn [[target pred]] (= 1.0 target)))
+                         (map last)
+                         (stats/lazy-sample)
+                         (take 1000))
+        zero-scores (->> evaluation
+                         (filter (fn [[target pred]] (= 0.0 target)))
+                         (map last)
+                         (stats/lazy-sample)
+                         (take 1000))]
     (float (avg (map #(if (< (first %) (last %)) 1 0)
                      (map vector zero-scores one-scores))))))
 

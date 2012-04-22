@@ -46,6 +46,18 @@
        (map #(clojure.string/split % #"="))
        (map (fn [[name kind]] (rf/feature name (header name) (keyword kind)))))))
 
+(defn auc-loss
+  "measures auc loss from forest evaluation"
+  [evaluation]
+  (rf/auc evaluation))
+
+(defn mean-absolute-loss
+  "measures l1 loss from forest evaluation"
+  [evaluation]
+  (->> evaluation
+       (map (fn [[a b]] (Math/abs (- a b))))
+       (rf/avg)))
+
 (defn -main
   [& args]
   (let [[options args banner] (cli args
@@ -55,6 +67,7 @@
                                    ["-m" "--split" "Number of features to sample for each split" :parse-fn #(Integer/parseInt %) :default 100]
                                    ["-o" "--output" "Write detailed training error output in CSV format to output file"]
                                    ["-t" "--target" "Prediction target name"]
+                                   ["-b" "--binary" "Perform binary classification of target (measures AUC loss)" :default false :flag true]
                                    ["-l" "--limit" "Number of trees to build"  :parse-fn #(Integer/parseInt %) :default 100])]
     (when (:help options)
       (println banner)
@@ -80,10 +93,9 @@
           (spit (:output options) "tree_count,target,prediction,error\n"))
         (doseq [trees sub-forests]
           (let [evaluation (rf/evaluate-forest trees)
-                error      (->> evaluation
-                                (map (fn [[a b]] (Math/abs (- a b))))
-                                (rf/avg))]
-            (println (format "%d: %f" (count trees) error))
+                loss       (-> evaluation
+                               ((if (:binary options) auc-loss mean-absolute-loss)))]
+            (println (format "%d: %f" (count trees) loss))
             (if (:output options)
               (spit (:output options)
                     (->> evaluation
