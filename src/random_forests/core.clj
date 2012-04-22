@@ -144,6 +144,11 @@
   [features feature-value]
   (disj features (:feature (meta feature-value))))
 
+(defn remove-meta
+  "removes meta data from object o"
+  [obj]
+  (with-meta obj {}))
+
 ;; method defined below, needed for call in build-tree-with-split
 (defn build-tree [examples features])
 
@@ -151,16 +156,20 @@
   [examples features feature-value sample-size]
   (if feature-value
     ;; examples are splittable using feature and value
-    (let [ex (split-examples examples feature-value)
-          child-eq (build-tree (:equal ex) features sample-size)
-          child-neq (build-tree (:unequal ex) features sample-size)]
+    (let [ex        (split-examples examples feature-value)
+          child-eq  (build-tree (:equal ex) features sample-size)
+          child-neq (build-tree (:unequal ex) features sample-size)
+          meq       (meta child-eq)
+          mneq      (meta child-neq)
+          child-eq  (remove-meta child-eq)
+          child-neq (remove-meta child-neq)]
       (let [mfv (meta feature-value)]
         (with-meta
           (fn [x]
             (if (feature-value x)
               (child-eq x)
               (child-neq x)))
-          {:tree (str "if(" (:text mfv) "){" (:tree (meta child-eq)) "}else{" (:tree (meta child-neq)) "}" )})))
+          {:tree (str "if(" (:text mfv) "){" (:tree meq) "}else{" (:tree mneq) "}" )})))
     ;; examples cannot be split all features are identical
     (let [t (target-mode examples)]
       (with-meta (fn [x] t) {:tree t}))))
