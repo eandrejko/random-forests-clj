@@ -88,7 +88,7 @@
          {:feature feature :value value :text (str/join " and " text)}))
      (= :continuous (:type feature))
      (with-meta
-       (fn [example] (<= (nth example i) value))
+       (fn [example] (and (nth example i) (<= (nth example i) value)))
        {:feature feature :value value :text (str (:name feature) "<=" value)})
      (= :text (:type feature))
      (with-meta
@@ -96,7 +96,7 @@
        {:feature feature :value value :text (str (:name feature) " contains " (if (:dict feature) ((:dict feature) value) value))})
      :else
      (with-meta
-       (fn [example] (= (nth example i) value))
+       (fn [example] (and (nth example i) (= (nth example i) value)))
        {:feature feature :value value :text (str (:name feature) "==" value)}))))
 
 (defn pairs
@@ -117,6 +117,7 @@
      values)
    (= :continuous (:type feature))
    (let [values (->> (map #(nth % (:index feature)) examples)
+                     (filter (comp not nil?))
                      sort)]
      (set (concat
            (map #(/ (+ (last %) (first %)) 2) (pairs values))
@@ -220,18 +221,18 @@
 
 (defn combine-predictions
   "combines predictions of examples of the form {example [prediction] ...} and returns [target prediction] pairs"
-  [predictions]
+  [eval-fn predictions]
   (->> predictions
        (reduce (partial merge-with concat))
-       (map (fn [[example preds]] (vector (target example) (avg preds))))))
+       (map (fn [[example preds]] (vector (target example) (eval-fn preds))))))
 
 (defn evaluate-forest
   "evaluates collection of trees by averaging predictions on held out data within trees meta-data :eval
    returns collection of [target prediction] pairs"
-  [forest]
+  [forest eval-fn]
   (->> forest
        (map (comp :eval meta))
-       (combine-predictions)))
+       (combine-predictions eval-fn)))
 
 (defn votes
   "determines vote of each decision tree in forest"

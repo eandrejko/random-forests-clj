@@ -58,6 +58,14 @@
        (map (fn [[a b]] (Math/abs (- a b))))
        (rf/avg)))
 
+(defn mean-classification-error
+  "measures l1 loss from forest evaluation"
+  [evaluation]
+  (->> evaluation
+       (map (fn [[a b]] (if (= a b) 1 0)))
+       (rf/avg)
+       (float)))
+
 (defn -main
   [& args]
   (let [[options args banner] (cli args
@@ -68,6 +76,7 @@
                                    ["-o" "--output" "Write detailed training error output in CSV format to output file"]
                                    ["-t" "--target" "Prediction target name"]
                                    ["-b" "--binary" "Perform binary classification of target (measures AUC loss)" :default false :flag true]
+                                   ["-u" "--multi" "Perform multi-class classification of target (measures classification rate)" :default false :flag true]
                                    ["-l" "--limit" "Number of trees to build" :parse-fn #(Integer/parseInt %) :default 100])]
     (when (or (not (first args)) (:help options))
       (println banner)
@@ -80,9 +89,11 @@
                                 (keep-indexed (fn [i x] (if (= x target-name) i)))
                                 (first))
           examples         (->> (named-examples header input)
-                                (map #(map (fn [[name val]] ((get encoding name identity) val)) %))
+                                (map #(map (fn [[name val]] (try ((get encoding name identity)  val) (catch java.lang.NumberFormatException e nil))) %))
                                 (map vec)
-                                (map (fn [z] (conj z (nth z target-index))))) ;; target is at end
+                                (map (fn [z] (conj z (nth z target-index))))  ;; target is at end
+                                (filter #(not (nil? (last %))))
+                                )
           features         (set (features header (:features options)))]
       (let [forest      (take (:limit options)
                               (rf/build-random-forest examples features (:split options) (:size options)))
@@ -91,14 +102,15 @@
         (if (:output options)
           (spit (:output options) "tree_count,target,prediction,error\n"))
         (doseq [trees sub-forests]
-          (let [evaluation (rf/evaluate-forest trees)
+          (let [combiner   (if (:multi options) rf/mode rf/avg)
+                evaluation (rf/evaluate-forest trees combiner)
                 loss       (-> evaluation
-                               ((if (:binary options) auc-loss mean-absolute-loss)))]
+                               ((if (:binary options) auc-loss (if (:multi options) mean-classification-error mean-absolute-loss))))]
             (println (format "%d: %f" (count trees) loss))
             (if (:output options)
               (spit (:output options)
                     (->> evaluation
-                         (map (fn [[a b]] [(count trees) a b (- a b)]))
+                         (map (fn [[a b]] [(count trees) a b (if (:multi options) (if (= a b) 1 0) (- a b))]))
                          (map #(str (clojure.string/join "," %) "\n"))
                          (reduce str))
                     :append true)))))
