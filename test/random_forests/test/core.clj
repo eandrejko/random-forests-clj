@@ -154,4 +154,4 @@
 (deftest combine-predictions-combines-predictions-with-mean
   (let [inputs   (list {[:a 0.0] [0.5]} {[:a 0.0] [0.0]} {[:b 1.0] [1.0]})
         expected (list [0.0 0.25] [1.0 1.0])]
-    (is (= (set expected) (set (combine-predictions inputs))))))
+    (is (= (set expected) (set (combine-predictions avg inputs))))))

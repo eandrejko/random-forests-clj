@@ -25,7 +25,7 @@
                       (take 100))]
     (is (= 1 (classify-scalar forest (first examples))))
     (is (= 2 (classify-scalar forest (last examples))))
-    (is (= 0 (->> (evaluate-forest forest) ;; held out data
+    (is (= 0 (->> (evaluate-forest forest avg) ;; held out data
                   (map (fn [[a b]] (- a b)))
                   (reduce +))))))
 
@@ -35,7 +35,7 @@
         features   #{(feature "only" 0 :continuous)}
         forest     (->> (build-random-forest examples features 100 100)
                         (take 50))
-        evaluation (evaluate-forest forest)] ;; held out data
+        evaluation (evaluate-forest forest avg)] ;; held out data
     ;; ratio between input and output should be approximately two
     (is (approx? 2 (->> (range 1 100)
                         (map (fn [z] [z (classify-scalar forest [z z])]))
